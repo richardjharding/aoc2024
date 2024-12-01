@@ -1,0 +1,26 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.Linq
+
+let input = System.IO.File.ReadAllText("part1.txt")
+
+let inputLines = input.Split("\r\n").ToArray()
+
+let foo = inputLines |> Array.map (fun x -> x.Split().Where(fun x ->  not (String.IsNullOrWhiteSpace(x))))
+
+let first = foo |> Array.map (fun x -> x |> Seq.head) |> Array.map (fun x -> int x) //|> Array.sort
+let second = foo |> Array.map (fun x -> x |> Seq.skip 1 |> Seq.head) |> Array.map (fun x -> int x) //|> Array.sort
+
+
+
+let secondListCount (x:int) =
+    second |> Array.where (fun y -> y = x) |> Array.length |> fun c -> c * x
+
+let counts = first |> Array.map (fun x -> secondListCount x)
+
+counts |> Array.sum
