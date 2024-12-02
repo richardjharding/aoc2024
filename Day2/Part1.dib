@@ -24,3 +24,17 @@ let isSafe (list: int []) =
     else 0
 
 parsed |> Array.map isSafe |> Array.sum
+
+#!markdown
+
+remove each element in turn the from report list and check if each is safe
+if safe list is equal or greater than original pairs -1 then report is safe
+
+#!fsharp
+
+let safe2 (list: int []) = 
+    let isSafe = list |> Array.mapi (fun i x -> (list |> Array.removeAt i)) |> Array.map isSafe |> Array.sum
+    if isSafe > 0 then 1
+    else 0
+
+parsed |> Array.map (fun l -> safe2 l) |> Array.sum
