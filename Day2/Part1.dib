@@ -1,0 +1,26 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.Linq
+
+let input = System.IO.File.ReadAllText("part1.txt")
+
+let inputLines = input.Split("\r\n").ToArray()
+
+let parsed = inputLines
+                |> Array.map (fun line -> line.Split(" ").ToArray())
+                |> Array.map (fun line -> line |> Array.map int)
+
+
+let isSafe (list: int []) = 
+    let pairs = list |> Array.pairwise
+    let safeDecrease = pairs |> Array.where (fun (a, b) -> (a > b) && ((a - b) < 4)) |> Array.length
+    let safeIncrease = pairs |> Array.where (fun (a, b) -> (a < b) && ((b - a) < 4)) |> Array.length
+    if safeIncrease = pairs.Length || safeDecrease = pairs.Length then 1
+    else 0
+
+parsed |> Array.map isSafe |> Array.sum
