@@ -1,0 +1,59 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+let grid = File.ReadAllLines("input.txt") |> List.ofArray
+
+let findCoordinatesOfA (filePath: string) =
+    let lines = File.ReadAllLines(filePath)
+    let rowCount = lines.Length
+    let colCount = if rowCount > 0 then lines.[0].Length else 0
+    lines
+    |> Array.mapi (fun y line -> 
+        line.ToCharArray()
+        |> Array.mapi (fun x ch -> 
+            if ch = 'A' && y <> 0 && y <> rowCount - 1 && x <> 0 && x <> colCount - 1 
+            then Some(x, y) 
+            else None)
+        |> Array.choose id)
+    |> Array.concat
+
+let coordinates = findCoordinatesOfA "input.txt"
+
+let isAdjacentTopLeftSM (x: int, y: int) (lines: string[]) =
+    let topLeftX = x - 1
+    let topLeftY = y - 1
+    let bottomRightX = x + 1
+    let bottomRightY = y + 1
+    if topLeftX >= 0 && topLeftY >= 0 then
+        let topLeftChar = lines.[topLeftY].[topLeftX]
+        let bottomRightChar = lines.[bottomRightY].[bottomRightX]
+        (topLeftChar = 'S' && bottomRightChar = 'M') || (topLeftChar = 'M' && bottomRightChar = 'S')
+    else
+        false
+
+let isAdjacentTopRightSM (x: int, y: int) (lines: string[]) =
+    let topRightX = x + 1
+    let topRightY = y - 1
+    let bottomLeftX = x - 1
+    let bottomLeftY = y + 1
+    
+    let topLeftChar = lines.[topRightY].[topRightX]
+    let bottomRightChar = lines.[bottomLeftY].[bottomLeftX]
+    (topLeftChar = 'S' && bottomRightChar = 'M') || (topLeftChar = 'M' && bottomRightChar = 'S')
+
+
+let filteredCoordinates = 
+    coordinates 
+    |> Array.filter (fun (x, y) -> (isAdjacentTopLeftSM (x, y) (grid |> Array.ofList)) && (isAdjacentTopRightSM (x, y) (grid |> Array.ofList)))
+
+//filteredCoordinates |> Array.iter (fun (x, y) -> printfn "A found at (%d, %d)" x y)
+
+
+filteredCoordinates.Length
