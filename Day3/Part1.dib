@@ -1,0 +1,78 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!csharp
+
+#r "nuget: FParsec, 1.1.1"
+
+#!fsharp
+
+open System
+open System.Linq
+open FParsec
+open System.Text.RegularExpressions
+
+let input = System.IO.File.ReadAllText("input.txt")
+
+let pattern = @"mul\(\d+,\d+\)"
+let matches = Regex.Matches(input, pattern)
+let result = String.concat "" (matches |> Seq.cast<Match> |> Seq.map (fun m -> m.Value))
+
+let ws = spaces
+let number = pint32 .>> ws
+let mulParser = pstring "mul(" >>. number .>> pchar ',' .>>. number .>> pchar ')'
+
+let mulParsers = many mulParser
+
+let pairs = match run mulParsers result with
+            | Success(result, _, _) -> result
+            | Failure(errorMsg, _, _) -> []
+                
+
+pairs |> List.map (fun (a,b) -> a * b) |> List.sum
+
+#!fsharp
+
+let sample = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"
+
+// Define the regex pattern to match do(), don't(), and mul(number,number)
+let pattern = @"do\(\)|don't\(\)|mul\(\d+,\d+\)"
+
+// Find all matches in the sample string
+let matches = Regex.Matches(input, pattern)
+
+// Concatenate the matches into a single string
+let result = 
+    matches 
+    |> Seq.cast<Match> 
+    |> Seq.map (fun m -> m.Value) 
+    |> String.concat ""
+
+result
+
+#!fsharp
+
+// Define FParsec parsers
+let pMul = pstring "mul(" >>. pint32 .>> pchar ',' .>>. pint32 .>> pchar ')' |>> (fun (a, b) -> (a, b))
+let pDo = pstring "do()"
+let pDont = pstring "don't()"
+
+let pExpr, pExprRef = createParserForwardedToRef<(int * int) list, unit>()
+
+let pIgnoreUntilDo = manyTill anyChar pDo >>. pExpr
+
+do pExprRef := 
+    choice [
+        attempt (pMul |>> List.singleton)
+        attempt (pDont >>. pIgnoreUntilDo)
+        pDo >>. pExpr
+    ]
+
+let parseResult = run (many pExpr |>> List.concat) result
+
+let pairs = match parseResult with
+                | Success(result, _, _) -> result
+                | Failure(errorMsg, _, _) -> []
+
+pairs |> List.map (fun (a,b) -> a * b) |> List.sum
