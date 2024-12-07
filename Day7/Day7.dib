@@ -28,6 +28,7 @@ let applyOperator (op: char) (a: int64) (b: int64) =
     match op with
     | '+' -> a + b
     | '*' -> a * b
+    | '|' -> int64 (sprintf "%d%d" a b)
     | _ -> failwith "Invalid operator"
 
 let generateOperatorCombinations length =
@@ -36,7 +37,8 @@ let generateOperatorCombinations length =
         else
             let withPlus = generate (current @ ['+']) (length - 1)
             let withMultiply = generate (current @ ['*']) (length - 1)
-            withPlus @ withMultiply
+            let withConcat = generate (current @ ['|']) (length - 1)
+            withPlus @ withMultiply @ withConcat
     generate [] length
 
 let applyOperatorsToList (nums: int64 list) (ops: char list) =
@@ -56,3 +58,4 @@ let isValidEquation (eq: equation) =
 
 
 equations |> Array.filter isValidEquation |> Array.sumBy (fun e -> e.Total)
+//isValidEquation equations.[3]
