@@ -1,0 +1,94 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+let input = File.ReadAllLines("input.txt") //|> List.ofArray
+
+type direction = Up | Down | Left | Right
+
+let nextDirection curentDirection = 
+    match curentDirection with
+    | Up -> Right
+    | Right -> Down
+    | Down -> Left
+    | Left -> Up
+
+let move (x, y) dir =
+    match dir with
+    | Up -> (x, y - 1)
+    | Down -> (x, y + 1)
+    | Left -> (x - 1, y)
+    | Right -> (x + 1, y)
+
+let findStartPos (lines : string[]) =    
+    let rowCount = lines.Length
+    let colCount = if rowCount > 0 then lines.[0].Length else 0
+    lines
+    |> Array.mapi (fun y line -> 
+        line.ToCharArray()
+        |> Array.mapi (fun x ch -> 
+            if ch = '^' && y <> 0 && y <> rowCount - 1 && x <> 0 && x <> colCount - 1 
+            then Some(x, y) 
+            else None)
+        |> Array.choose id)
+    |> Array.concat
+
+let getNextChar (lines : string[]) (x, y) dir =
+    let (newX, newY) = move (x, y) dir
+    if newY >= 0 && newY < lines.Length && newX >= 0 && newX < lines.[newY].Length then
+        Some(lines.[newY].[newX])
+    else
+        None
+
+let rec traverse (lines : string[]) (x, y) dir coordinates =
+    match getNextChar lines (x, y) dir with
+    | Some('^')
+    | Some('.') -> 
+        let (newX, newY) = move (x, y) dir
+        traverse lines (newX, newY) dir ((newX, newY) :: coordinates)
+    | Some('#') -> 
+        let newDir = nextDirection dir
+        traverse lines (x, y) newDir coordinates
+    | _ -> List.rev ((x,y) :: coordinates)
+
+let start = (findStartPos input)[0] 
+let startDirection  = Up
+let steps = traverse input (start) startDirection [start]
+
+steps |> List.distinct  |> List.length
+
+#!fsharp
+
+let candidatesForObstructions  = steps |> List.distinct
+
+let rec detectLoop (lines : string[]) (x, y) dir coordinates =
+    match getNextChar lines (x, y) dir with
+    | Some('^')
+    | Some('.') -> 
+        let (newX, newY) = move (x, y) dir
+        let hereBefore = coordinates |> List.exists (fun (x,y,oldDir) -> x = newX && y = newY && oldDir = dir)
+        if hereBefore then
+            true
+        else            
+            detectLoop lines (newX, newY) dir ((newX, newY, dir) :: coordinates)
+    | Some('#') -> 
+        let newDir = nextDirection dir
+        detectLoop lines (x, y) newDir coordinates
+    | _ -> false
+
+let insertObstruction (lines : string[]) (x, y) = 
+    lines |> Array.updateAt y (lines.[y].ToCharArray() |> Array.updateAt x '#' |> System.String)
+
+candidatesForObstructions
+|> List.where (fun (x,y) ->
+        let testinput = insertObstruction input (x,y)
+        let isLoop = detectLoop testinput start startDirection [(start |> fst, start |> snd, startDirection)]
+        isLoop
+        )
+        |> List.length

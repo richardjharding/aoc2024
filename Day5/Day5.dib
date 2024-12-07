@@ -1,0 +1,51 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+let input = File.ReadAllLines("input.txt") |> List.ofArray
+
+let rules = input |> List.where (fun x -> x.Contains("|")) |> List.map (fun x -> x.Split("|") |> List.ofArray)
+
+let pageLines = input |> List.where (fun x -> x.Contains(",")) |> List.map (fun x -> x.Split(",") |> List.ofArray)
+
+let ruleApplies (rule: string list) (page: string list) =
+    page |> List.contains(rule.[0]) && page |> List.contains(rule.[1])
+
+let applicableRules pages =
+    rules |> List.filter (fun rule -> ruleApplies rule pages)
+
+let ruleSatisfied (rule: string list) (page: string list) =
+    let firstIndex = page |> List.findIndex (fun x -> x = rule.[0])
+    let secondIndex = page |> List.findIndex (fun x -> x = rule.[1])
+    firstIndex < secondIndex
+
+let pageOrderValid pageNumbers applicableRules =    
+    applicableRules |> List.forall (fun rule -> ruleSatisfied rule pageNumbers)
+
+let selectMiddle (page: string list) =
+    let middleIndex = page.Length / 2
+    page.[middleIndex]
+
+let validLists  = pageLines |> List.filter (fun page -> pageOrderValid page (applicableRules page))
+
+
+validLists |> List.map selectMiddle |> List.map (fun s -> int s) |> List.sum
+
+#!fsharp
+
+let unsortedLists = pageLines |> List.filter (fun page -> not (pageOrderValid page (applicableRules page)))
+
+let pageNumberCompare firstNumber secondNumber =
+    let applicablerule = applicableRules [firstNumber; secondNumber]
+    if (pageOrderValid [firstNumber; secondNumber] applicablerule) then 1   
+    else -1
+
+
+unsortedLists |> List.map (fun l -> l |> List.sortWith pageNumberCompare) |> List.map selectMiddle |> List.map (fun s -> int s) |> List.sum
+    
