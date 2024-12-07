@@ -1,0 +1,58 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+type equation = {Total:int64; Pairs: int64 list}
+
+let input = File.ReadAllLines("input.txt")
+
+let parseLine (line: string) =
+    let parts = line.Split(":")
+    let total = int64 (parts.[0].Trim())
+    let pairs = 
+        parts.[1].Trim().Split(" ")
+        //|> Array.pairwise
+        |> Array.map (fun (a) -> (int64 a))
+        |> List.ofArray
+    {Total = total; Pairs = pairs}
+
+let equations = input |> Array.map parseLine
+
+let applyOperator (op: char) (a: int64) (b: int64) =
+    match op with
+    | '+' -> a + b
+    | '*' -> a * b
+    | _ -> failwith "Invalid operator"
+
+let generateOperatorCombinations length =
+    let rec generate current length =
+        if length = 0 then [current]
+        else
+            let withPlus = generate (current @ ['+']) (length - 1)
+            let withMultiply = generate (current @ ['*']) (length - 1)
+            withPlus @ withMultiply
+    generate [] length
+
+let applyOperatorsToList (nums: int64 list) (ops: char list) =
+    let rec apply nums ops =
+        match nums, ops with
+        | [x], [] -> [x]
+        | x::y::restNums, op::restOps ->
+            let result = applyOperator op x y
+            apply (result::restNums) restOps
+        | _ -> failwith "Invalid input"
+    apply nums ops
+
+let isValidEquation (eq: equation) =
+    let oplist = generateOperatorCombinations (eq.Pairs.Length - 1)
+    let totals = oplist |> List.map (applyOperatorsToList eq.Pairs) |> List.concat
+    totals |> List.where (fun x -> x = eq.Total) |> List.length > 0
+
+
+equations |> Array.filter isValidEquation |> Array.sumBy (fun e -> e.Total)
