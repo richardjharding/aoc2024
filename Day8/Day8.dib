@@ -58,30 +58,21 @@ let direction (dx, dy) =
     elif dy = 0 then Horizontal
     else Vertical
 
+let calculateNewCoordinates (x, y) (dx, dy) =
+    let newX = x - dx
+    let newY = y - dy
+    (newX, newY)
 
 let findCandidateNodes freqPair = 
     let dist = differences freqPair
     let dir = direction dist
     let xDif = fst dist
     let yDif = snd dist
-    match dir with
-    | RightToLeft ->
-        let topRightX = fst (fst freqPair)
-        let newTopRightX =  topRightX - xDif
-        let newTopRightY = (snd (fst freqPair)) -  yDif
-        let bottomLeftX = fst (snd freqPair)
-        let newBottomLeftX = bottomLeftX + xDif
-        let newBottomLeftY = (snd (snd freqPair)) + yDif
-        Some ((newTopRightX, newTopRightY),(newBottomLeftX, newBottomLeftY))
-    | LeftToRight ->
-        let topLeftX = fst (fst freqPair)
-        let newTopLeftX =  topLeftX - xDif
-        let newTopLeftY = (snd (fst freqPair)) - yDif
-        let bottomRightX = fst (snd freqPair)
-        let newBottomRightX = bottomRightX + xDif
-        let newBottomRightY = (snd (snd freqPair)) + yDif
-        Some ((newTopLeftX, newTopLeftY),(newBottomRightX, newBottomRightY))
-    | _ -> None
+    let (coord1, coord2) = freqPair
+    let newTopRight = calculateNewCoordinates (coord1) (xDif, yDif)
+    let newBottomLeft = calculateNewCoordinates coord2 (-xDif, -yDif)
+    [newTopRight; newBottomLeft]
+    
 
 let isWithinBounds (x, y) =
     let maxY = input.Length - 1
@@ -92,9 +83,45 @@ let freqNodePairs = pairs |> Seq.collect (fun kvp -> kvp.Value)
 
 freqNodePairs
 |> Seq.map findCandidateNodes
-|> Seq.choose id 
-|> Seq.map (fun p -> [(fst p); (snd p)]) 
 |> Seq.concat
 |> Seq.filter isWithinBounds
 |> Seq.distinct
 |> Seq.length
+
+#!fsharp
+
+let candidateNodes2 freqPair = 
+    let dist = differences freqPair
+    let dir = direction dist
+    let xDif = fst dist
+    let yDif = snd dist
+    let (coord1, coord2) = freqPair
+    let rec downwardsNodes start dist acc =
+        let newCoord = calculateNewCoordinates start (-xDif, -yDif)
+        if isWithinBounds newCoord then
+            downwardsNodes newCoord dist (newCoord::acc)
+        else
+            acc
+    let rec upwardsNodes start dist acc =
+        let newCoord = calculateNewCoordinates start (xDif, yDif)
+        if isWithinBounds newCoord then
+            upwardsNodes newCoord dist (newCoord::acc)
+        else
+            acc
+    let downwards = downwardsNodes coord1 (xDif, yDif) []
+    let upwards = upwardsNodes coord2 (xDif, yDif) []
+    downwards @ upwards
+
+let start = (0,0)
+let second = (1,3)
+
+let foo = candidateNodes2 (start, second)
+
+freqNodePairs
+|> Seq.map candidateNodes2
+|> Seq.concat
+|> Seq.filter isWithinBounds
+|> Seq.distinct
+|> Seq.length
+
+    
