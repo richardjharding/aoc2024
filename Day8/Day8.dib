@@ -1,0 +1,100 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+let input = File.ReadAllLines("input.txt")
+
+let frequencies =
+    input
+    |> String.concat ""
+    |> Seq.filter (fun c -> c <> '.')
+    |> Seq.distinct
+    |> Seq.toList
+
+let findCoordinates (char: char) =
+    input
+    |> Array.mapi (fun lineIndex line ->
+        line
+        |> Seq.mapi (fun charIndex c -> if c = char then Some (charIndex, lineIndex) else None)
+        |> Seq.choose id
+        |> Seq.toList)
+    |> Array.toList
+    |> List.concat
+
+let coordinates =
+    frequencies
+    |> List.map (fun char -> (char, findCoordinates char))
+    |> dict
+
+let findPairs (coords: (int * int) list) =
+    [for i in 0 .. coords.Length - 2 do
+        for j in i + 1 .. coords.Length - 1 do
+            yield (coords.[i], coords.[j])]
+
+let pairs =
+    frequencies
+    |> List.map (fun char -> 
+        match coordinates.TryGetValue(char) with
+        | true, coords -> (char, findPairs coords)
+        | _ -> (char, []))
+    |> dict
+
+let differences ((x1, y1), (x2, y2))=
+    let dx = x2 - x1
+    let dy = y2 - y1
+    (dx, dy)
+
+type Direction = LeftToRight | RightToLeft | Vertical | Horizontal
+
+let direction (dx, dy) =
+    if dx > 0 then LeftToRight
+    elif dx < 0 then RightToLeft
+    elif dy = 0 then Horizontal
+    else Vertical
+
+
+let findCandidateNodes freqPair = 
+    let dist = differences freqPair
+    let dir = direction dist
+    let xDif = fst dist
+    let yDif = snd dist
+    match dir with
+    | RightToLeft ->
+        let topRightX = fst (fst freqPair)
+        let newTopRightX =  topRightX - xDif
+        let newTopRightY = (snd (fst freqPair)) -  yDif
+        let bottomLeftX = fst (snd freqPair)
+        let newBottomLeftX = bottomLeftX + xDif
+        let newBottomLeftY = (snd (snd freqPair)) + yDif
+        Some ((newTopRightX, newTopRightY),(newBottomLeftX, newBottomLeftY))
+    | LeftToRight ->
+        let topLeftX = fst (fst freqPair)
+        let newTopLeftX =  topLeftX - xDif
+        let newTopLeftY = (snd (fst freqPair)) - yDif
+        let bottomRightX = fst (snd freqPair)
+        let newBottomRightX = bottomRightX + xDif
+        let newBottomRightY = (snd (snd freqPair)) + yDif
+        Some ((newTopLeftX, newTopLeftY),(newBottomRightX, newBottomRightY))
+    | _ -> None
+
+let isWithinBounds (x, y) =
+    let maxY = input.Length - 1
+    let maxX = if maxY >= 0 then input.[0].Length - 1 else -1
+    x >= 0 && x <= maxX && y >= 0 && y <= maxY
+
+let freqNodePairs = pairs |> Seq.collect (fun kvp -> kvp.Value)
+
+freqNodePairs
+|> Seq.map findCandidateNodes
+|> Seq.choose id 
+|> Seq.map (fun p -> [(fst p); (snd p)]) 
+|> Seq.concat
+|> Seq.filter isWithinBounds
+|> Seq.distinct
+|> Seq.length
