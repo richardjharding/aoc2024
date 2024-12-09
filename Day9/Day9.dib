@@ -1,0 +1,174 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+let input = ((File.ReadAllLines("input.txt"))[0]).ToCharArray() |> List.ofArray
+
+type diskFile = {id: int; size: int; followingFree: int}
+
+type Block = 
+    | File of Id: int64
+    | Free
+
+let test = "12345".ToCharArray() |> List.ofArray
+let test2 = "10203".ToCharArray() |> List.ofArray
+
+let parseDiskFile (line: char list) = 
+    let rec parse (line: char list) ( files: diskFile list) (id:int) = 
+        match line with
+        | [] -> files
+        | size::free::tail ->
+            let file = {id = id; size = int (string size); followingFree = int (string free)}
+            parse tail (file::files) (id + 1)
+        | size::tail -> 
+            let file = {id = id; size = int (string size); followingFree = 0}
+            parse tail (file::files) (id + 1)
+        | _ -> files
+    parse line [] 0 |> List.rev
+
+let convertToBlocks files = 
+    let rec parse files (blocks: Block list) = 
+        match files with
+        | [] -> blocks
+        | [file] ->
+            let fileBlocks = List.replicate file.size (File file.id)
+            let freeBlocks = List.replicate file.followingFree Free
+            blocks @ (fileBlocks @ freeBlocks)
+        | file::tail ->
+            let fileBlocks = List.replicate file.size (File file.id)
+            let freeBlocks = List.replicate file.followingFree Free
+            parse tail (blocks @ (fileBlocks @ freeBlocks))            
+
+    parse files []
+
+let removeLastItem list =
+    if List.isEmpty list then
+        list
+    else
+        list |> List.take (List.length list - 1)
+
+let findFirstFreeIndex blocks =
+    match blocks |> List.tryFindIndex (function | Free -> true | _ -> false) with
+    | Some index -> index
+    | None -> -1
+
+let move blocks = 
+    let rec defragOne (blocks: Block list) = 
+        match findFirstFreeIndex blocks with
+        | -1 -> blocks
+        | index ->
+            if index = blocks.Length - 1 then (blocks |> removeLastItem) else
+                let lastBloc = blocks |> List.last
+                let blocksWithoutLast = blocks |> removeLastItem 
+                let newBlocks = (blocksWithoutLast |> List.removeAt index ) |> List.insertAt index lastBloc
+                //newBlocks
+                //visualize newBlocks
+                defragOne newBlocks
+    
+    
+    defragOne blocks
+    
+
+let visualize blocks = 
+    blocks
+    |> List.map (fun f -> 
+                        let s = match f with
+                                | File id -> sprintf "%d" id
+                                | Free -> sprintf "."
+                        sprintf "%s" s)
+    |> Seq.map string
+    |> String.concat ""
+
+
+let starting = (parseDiskFile input)
+
+// let blocks = starting |> convertToBlocks
+
+// blocks |> move |> List.mapi (fun i f -> 
+//                                     match f with
+//                                     | File id -> id * (int64 i)
+//                                     | _ -> 0
+// ) |> List.sum
+
+let findFileWithFreeSpace  spaceReq files =
+    match files |> List.tryFindIndex (fun file -> file.followingFree >= spaceReq) with
+    | Some index -> index
+    | None -> -1 
+
+let findMaxId files = 
+    files |> List.maxBy (fun file -> file.id)
+
+let findFileIndexById  id files =
+    match files |> List.tryFindIndex (fun file -> file.id = id) with
+    | Some index -> index
+    | None -> -1 
+
+let remainingFreeSpace file1 file2 = 
+    file1.followingFree - file2.size
+
+
+starting |> findFileWithFreeSpace 2
+
+let moveWholeFile id files = 
+    let fileToMoveIndex = findFileIndexById id files
+    let freeSpaceIndex = findFileWithFreeSpace files.[fileToMoveIndex].size files
+    if freeSpaceIndex = -1 || freeSpaceIndex >= (fileToMoveIndex)
+    then files
+    else
+        let fileWithSpace = files.[freeSpaceIndex]
+        let remaining = remainingFreeSpace fileWithSpace files.[fileToMoveIndex]
+        let fileToUpdate = {files.[freeSpaceIndex] with followingFree = 0}
+        let fileBeforeMoved = files.[fileToMoveIndex - 1]
+        let fileToMove = {files.[fileToMoveIndex] with followingFree = remaining}
+        if (fileToMoveIndex = freeSpaceIndex + 1) then
+            let newFiles = files |> List.updateAt freeSpaceIndex fileToUpdate
+                            |> List.insertAt (freeSpaceIndex + 1) {fileToMove with followingFree = fileWithSpace.followingFree}
+                            |> List.removeAt (fileToMoveIndex + 1)                            
+            newFiles
+        else
+            let newFiles = files |> List.updateAt freeSpaceIndex fileToUpdate
+                            |> List.insertAt (freeSpaceIndex + 1) fileToMove
+                            |> List.removeAt (fileToMoveIndex + 1)
+                            |> List.updateAt fileToMoveIndex {fileBeforeMoved with followingFree = fileBeforeMoved.followingFree + (files.[fileToMoveIndex].followingFree)+ (files.[fileToMoveIndex].size)}
+            newFiles
+
+let rec processFiles files ids =
+    match ids with
+    | [] -> files
+    | id::tail -> 
+        let files = moveWholeFile id files
+        processFiles files tail
+
+
+let ids = starting |> List.map (fun file -> file.id) |> List.rev
+
+// hint from redit re this test case to handle case where adjacent files are swapped
+let testcase = "0112233".ToCharArray() |> List.ofArray
+let testInput = (parseDiskFile testcase)
+let testIds = testInput |> List.map (fun file -> file.id) |> List.rev
+
+testInput |> convertToBlocks |> visualize |> Console.WriteLine
+processFiles starting ids |> convertToBlocks |> List.mapi (fun i f -> 
+                                    match f with
+                                    | File id -> id * (int64 i)
+                                    | _ -> 0
+) |> List.sum
+
+#!markdown
+
+6307279967886 - too high
+
+zero len files?
+
+find index of file with free space
+calc remaining free space to create new File
+insert new file at index +1
+replace file at index with file copy with zero space
+remove file at index
+update file at index -1 with size of moved file
