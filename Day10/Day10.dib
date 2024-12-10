@@ -1,0 +1,96 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+
+// Read the contents of sample.txt
+let filePath = "input.txt"
+let fileContents = File.ReadAllLines(filePath)
+
+type Coord = {X: int; Y: int}
+type Cel = {Coord: Coord; Ch: char}
+
+// Create a 2D grid of coordinates and characters
+let createGrid (lines: string[]) =
+    lines
+    |> Array.mapi (fun y line ->
+        line.ToCharArray()
+        |> Array.mapi (fun x ch -> { Coord = { X = x; Y = y }; Ch = ch })
+    )
+    |> Array.concat
+    |> Array.toList
+
+let findCellsContainingZero (grid: Cel list) =
+    grid
+    |> List.filter (fun cell -> cell.Ch = '0')
+
+let findNextHighestNumber (grid: Cel list) (cell: Cel) =
+    let nextHighestChar = char (int cell.Ch + 1)
+    grid
+    |> List.filter (fun c ->
+        let dx = abs (c.Coord.X - cell.Coord.X)
+        let dy = abs (c.Coord.Y - cell.Coord.Y)
+        (dx = 1 && dy = 0 || dx = 0 && dy = 1) && c.Ch = nextHighestChar
+    )
+
+let rec findPathsToNine (grid: Cel list) (path: Cel list) =
+    let currentCell = List.head path
+    if currentCell.Ch = '9' then
+        [List.rev path]
+    else
+        let nextCells = findNextHighestNumber grid currentCell
+        nextCells
+        |> List.collect (fun nextCell -> findPathsToNine grid (nextCell :: path))
+
+let comparePaths (path1: Cel list) (path2: Cel list) =
+    let rec compareCells cells1 cells2 =
+        match cells1, cells2 with
+        | [], [] -> 0
+        | [], _ -> -1
+        | _, [] -> 1
+        | cell1 :: rest1, cell2 :: rest2 ->
+            let coordComparison = compare cell1.Coord cell2.Coord
+            if coordComparison <> 0 then coordComparison
+            else
+                let charComparison = compare cell1.Ch cell2.Ch
+                if charComparison <> 0 then charComparison
+                else compareCells rest1 rest2
+    compareCells path1 path2
+
+
+// Generate the grid
+let grid = createGrid fileContents
+
+let startCells = findCellsContainingZero grid
+let pathsToNine = startCells |> List.collect (fun startCell -> findPathsToNine grid [startCell])
+
+
+let cellsContainingNine pathsToNine =
+    pathsToNine
+    |> List.collect (fun path -> path |> List.filter (fun cell -> cell.Ch = '9'))
+    |> List.distinctBy (fun cell -> cell.Coord)
+
+
+let trailheads = startCells |> List.map (fun c -> findPathsToNine grid [c]) 
+
+//trailheads
+
+#!fsharp
+
+let makePathDistinctByNine (path: Cel list) =
+    let rec distinctPath acc remainingPath =
+        match remainingPath with
+        | [] -> List.rev acc
+        | cell :: rest ->
+            if cell.Ch = '9' then
+                List.rev (cell :: acc)
+            else
+                distinctPath (cell :: acc) rest
+    distinctPath [] path
+
+
+trailheads |> List.map (fun h -> (h |> List.map (fun p -> p[9]) |> List.distinct |> List.length)) |> List.sum
