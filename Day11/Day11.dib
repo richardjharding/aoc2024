@@ -1,0 +1,85 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!fsharp
+
+open System
+open System.IO
+open System.Collections.Generic
+
+// Part 1 origianlly brute force then had to take a massive hint from @mafinar.bsky.social solution to refactor to use a map
+
+let input = File.ReadAllLines("input.txt")
+
+let startingNumbers = input[0].Split(" ") |> Array.map (fun s -> int64 (String s)) |> Array.toList
+
+let createFrequencyMap (numbers: int64 list) =
+    numbers
+    |> List.fold (fun acc number ->
+        match Map.tryFind number acc with
+        | Some count -> Map.add number (count + 1L) acc
+        | None -> Map.add number 1L acc
+    ) Map.empty
+
+let remove (number:int64) (count: int64) (numbers: Map<int64,int64>) = 
+    match Map.tryFind number numbers with
+    | Some value when value = count -> Map.remove number numbers
+    | Some value -> Map.add number (value - count) numbers
+    | None -> numbers
+
+let add (number:int64) (count: int64) (numbers: Map<int64,int64>) =
+    numbers
+    |> Map.change number (fun value ->
+        match value with
+        | Some value -> Some (value + count)
+        | None -> Some count
+    )
+
+let splitNumber number =
+    let numberStr = number.ToString()
+    let length = numberStr.Length
+    let halfLength = length / 2
+    let firstHalf = numberStr.Substring(0, halfLength) |> int64
+    let secondHalf = numberStr.Substring(halfLength, halfLength) |> int64
+    (firstHalf, secondHalf)
+
+let foo = createFrequencyMap startingNumbers
+
+let applyRule (key: int64) value (numbers: Map<int64, int64>) =
+    match key with
+    | 0L-> 
+            numbers |> remove 0L value |> add 1L value
+            
+    | number when (string number).Length % 2 = 0 -> 
+            let part1, part2 = splitNumber number
+            numbers
+            |> remove key value
+            |> add part1 value
+            |> add part2 value
+    | _ -> 
+            numbers 
+            |> remove key value
+            |> add (key * 2024L) value
+            
+    
+let blinks = [1..75]
+
+
+let keys = Map.keys foo
+
+let applyRulesToAllKeys (numbers: Map<int64, int64>) =
+    numbers
+    |> Map.fold (fun acc key value -> applyRule key value acc) numbers
+
+let rec RunBlinks blinks (numbers: Map<int64,int64>) = 
+    match blinks with
+    | [] -> numbers
+    | _ -> 
+        let newNumbers = applyRulesToAllKeys numbers
+        RunBlinks (List.tail blinks) newNumbers
+
+let sumValues (numbers: Map<int64, int64>) =
+    numbers |> Map.fold (fun acc _ value -> acc + value) 0L
+
+RunBlinks blinks foo |> sumValues
